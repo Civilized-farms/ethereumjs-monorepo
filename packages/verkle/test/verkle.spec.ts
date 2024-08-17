@@ -1,13 +1,13 @@
-import { MapDB, equalsBytes, hexToBytes } from '@ethereumjs/util'
+import { MapDB, equalsBytes, hexToBytes, matchingBytesLength } from '@ethereumjs/util'
 import { loadVerkleCrypto } from 'verkle-cryptography-wasm'
 import { assert, beforeAll, describe, it } from 'vitest'
 
 import {
   InternalNode,
   LeafNode,
+  VerkleLeafNodeValue,
   VerkleNodeType,
   decodeNode,
-  matchingBytesLength,
 } from '../src/index.js'
 import { VerkleTree } from '../src/verkleTree.js'
 
@@ -96,7 +96,7 @@ describe('Verkle tree', () => {
     assert.deepEqual(
       verkleCrypto.serializeCommitment(pathToNonExistentNode.stack[0][0].commitment),
       tree.root(),
-      'contains the root node in the stack'
+      'contains the root node in the stack',
     )
   })
 
@@ -211,7 +211,7 @@ describe('Verkle tree', () => {
     assert.deepEqual(val2, hexToBytes(values[2]), 'confirm values[2] can be retrieved from trie')
   })
 
-  it('should put values and find them', async () => {
+  it('should sequentially put->find->delete->put values', async () => {
     const keys = [
       // Two keys with the same stem but different suffixes
       '0x318dea512b6f3237a2d4763cf49bf26de3b617fb0cabe38a97807a5549df4d01',
@@ -241,5 +241,29 @@ describe('Verkle tree', () => {
     assert.deepEqual(await trie.get(hexToBytes(keys[0])), hexToBytes(values[0]))
     assert.deepEqual(await trie.get(hexToBytes(keys[2])), hexToBytes(values[2]))
     assert.deepEqual(await trie.get(hexToBytes(keys[3])), hexToBytes(values[3]))
+
+    await trie.del(hexToBytes(keys[0]))
+    assert.deepEqual(await trie.get(hexToBytes(keys[0])), new Uint8Array(32))
+
+    await trie.put(hexToBytes(keys[0]), hexToBytes(values[0]))
+    assert.deepEqual(await trie.get(hexToBytes(keys[0])), hexToBytes(values[0]))
+  })
+  it('should put zeros in leaf node when del called with stem that was not in the trie before', async () => {
+    const keys = ['0x318dea512b6f3237a2d4763cf49bf26de3b617fb0cabe38a97807a5549df4d01']
+
+    const trie = await VerkleTree.create({
+      verkleCrypto,
+      db: new MapDB<Uint8Array, Uint8Array>(),
+    })
+
+    await trie['_createRootNode']()
+    assert.deepEqual(await trie.get(hexToBytes(keys[0])), undefined)
+    await trie.del(hexToBytes(keys[0]))
+    const res = await trie.findPath(hexToBytes(keys[0]).slice(0, 31))
+    assert.ok(res.node !== null)
+    assert.deepEqual(
+      (res.node as LeafNode).values[hexToBytes(keys[0])[31]],
+      VerkleLeafNodeValue.Deleted,
+    )
   })
 })

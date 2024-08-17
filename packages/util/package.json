@@ -1,6 +1,6 @@
 {
   "name": "@ethereumjs/util",
-  "version": "9.0.3",
+  "version": "9.1.0",
   "description": "A collection of utility functions for Ethereum",
   "keywords": [
     "ethereum",
@@ -61,7 +61,8 @@
       "url": "https://github.com/asinyagin"
     }
   ],
-  "type": "commonjs",
+  "type": "module",
+  "sideEffects": false,
   "main": "dist/cjs/index.js",
   "module": "dist/esm/index.js",
   "exports": {

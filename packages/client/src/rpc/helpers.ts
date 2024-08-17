@@ -10,6 +10,7 @@ type RpcError = {
   code: number
   message: string
   trace?: string
+  data?: string
 }
 
 export function callWithStackTrace(handler: Function, debug: boolean) {
@@ -21,9 +22,10 @@ export function callWithStackTrace(handler: Function, debug: boolean) {
       const e: RpcError = {
         code: error.code ?? INTERNAL_ERROR,
         message: error.message,
+        data: error.data,
       }
       if (debug === true) {
-        e['trace'] = error.stack ?? 'Stack trace is not available'
+        e['trace'] = error.stack
       }
 
       throw e
@@ -58,6 +60,7 @@ export const jsonRpcTx = (tx: TypedTransaction, block?: Block, txIndex?: number)
     s: txJSON.s!,
     maxFeePerBlobGas: txJSON.maxFeePerBlobGas,
     blobVersionedHashes: txJSON.blobVersionedHashes,
+    yParity: txJSON.yParity,
   }
 }
 

@@ -1,4 +1,9 @@
-import { Block, BlockHeader, executionPayloadFromBeaconPayload } from '@ethereumjs/block'
+import {
+  BlockHeader,
+  createBlockFromExecutionPayload,
+  createBlockFromRLPSerializedBlock,
+  executionPayloadFromBeaconPayload,
+} from '@ethereumjs/block'
 import { hexToBytes } from '@ethereumjs/util'
 import { readFileSync } from 'fs'
 import * as td from 'testdouble'
@@ -27,14 +32,14 @@ const genesisVerkleBlockHash = '0x3fe165c03e7a77d1e3759362ebeeb16fd964cb411ce11f
  *   a. On the saved blocks, comma separated (were produced for kaustinen4 )
  *      `TEST_SAVED_NUMBERS=353,368,374,467 npx vitest run test/rpc/engine/kaustinen5.spec.ts`
  *   b. Geth produced testvectors (were produced for kaustinen5)
- *     `TEST_GETH_VEC_DIR=test/testdata/gethk5vecs DEBUG=ethjs,vm:*,evm:*,statemanager:verkle* npx vitest run test/rpc/engine/kaustinen6.spec.ts`
+ *     `TEST_GETH_VEC_DIR=test/testdata/gethk5vecs DEBUG=ethjs,vm:*,evm:*,statemanager:verkle* npx vitest run test/rpc/engine/kaustinen6.spec.ts` // cspell:disable-line
  */
 
 const originalValidate = (BlockHeader as any).prototype._consensusFormatValidation
 
 async function fetchExecutionPayload(
   peerBeaconUrl: string,
-  slot: number | string
+  slot: number | string,
 ): Promise<BeaconPayloadJson | undefined> {
   let beaconPayload: BeaconPayloadJson | undefined = undefined
   try {
@@ -50,13 +55,13 @@ async function runBlock(
   { chain, rpc, common }: { chain: Chain; rpc: HttpClient; common: Common },
   { execute, parent }: { execute: any; parent: any },
   isBeaconData: boolean,
-  context: any
+  context: any,
 ) {
   const blockCache = chain.blockCache
 
   const parentPayload =
     isBeaconData === true ? executionPayloadFromBeaconPayload(parent as any) : parent
-  const parentBlock = await Block.fromExecutionPayload(parentPayload, { common })
+  const parentBlock = await createBlockFromExecutionPayload(parentPayload, { common })
   blockCache.remoteBlocks.set(parentPayload.blockHash.slice(2), parentBlock)
   blockCache.executedBlocks.set(parentPayload.blockHash.slice(2), parentBlock)
 
@@ -141,10 +146,10 @@ describe(`valid verkle network setup`, async () => {
 
   if (process.env.TEST_GETH_VEC_DIR !== undefined) {
     // eslint-disable-next-line @typescript-eslint/no-use-before-define
-    const gethVecs = await loadGethVectors(process.env.TEST_GETH_VEC_DIR, { common })
-    let parent = gethVecs[0]
-    for (let i = 1; i < gethVecs.length; i++) {
-      const execute = gethVecs[i]
+    const gethVectors = await loadGethVectors(process.env.TEST_GETH_VEC_DIR, { common })
+    let parent = gethVectors[0]
+    for (let i = 1; i < gethVectors.length; i++) {
+      const execute = gethVectors[i]
       it(`run geth vector: ${execute.blockNumber}`, async (context) => {
         await runBlock({ common, chain, rpc }, { parent, execute }, false, context)
         parent = execute
@@ -208,21 +213,21 @@ async function loadGethVectors(vectorsDirPath: string, opts: { common: Common })
     },
   }
   const block0RlpHex = readFileSync(`${vectorsDirPath}/block0.rlp.hex`, 'utf8').trim()
-  const block0 = Block.fromRLPSerializedBlock(hexToBytes(`0x${block0RlpHex}`), {
+  const block0 = createBlockFromRLPSerializedBlock(hexToBytes(`0x${block0RlpHex}`), {
     ...opts,
     executionWitness: executionWitness0,
   })
   const _block0Payload = block0.toExecutionPayload()
 
   const block1RlpHex = readFileSync(`${vectorsDirPath}/block1.rlp.hex`, 'utf8').trim()
-  const block1 = Block.fromRLPSerializedBlock(hexToBytes(`0x${block1RlpHex}`), {
+  const block1 = createBlockFromRLPSerializedBlock(hexToBytes(`0x${block1RlpHex}`), {
     ...opts,
     executionWitness: executionWitness1,
   })
   const block1Payload = block1.toExecutionPayload()
 
   const block2RlpHex = readFileSync(`${vectorsDirPath}/block2.rlp.hex`, 'utf8').trim()
-  const block2 = Block.fromRLPSerializedBlock(hexToBytes(`0x${block2RlpHex}`), {
+  const block2 = createBlockFromRLPSerializedBlock(hexToBytes(`0x${block2RlpHex}`), {
     ...opts,
     executionWitness: executionWitness2,
   })
