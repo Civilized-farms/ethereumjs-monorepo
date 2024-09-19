@@ -1,14 +1,14 @@
 import { Mainnet } from '@ethereumjs/common'
 import {
-  ConsolidationRequest,
-  DepositRequest,
-  WithdrawalRequest,
   bigIntToAddressBytes,
   bigIntToBytes,
   bytesToBigInt,
   bytesToHex,
   bytesToInt,
   createAddressFromString,
+  createConsolidationRequest,
+  createDepositRequest,
+  createWithdrawalRequest,
   setLengthLeft,
   unpadBytes,
 } from '@ethereumjs/util'
@@ -66,24 +66,27 @@ const accumulateEIP7002Requests = async (
   )
   const withdrawalsAddress = createAddressFromString(bytesToHex(addressBytes))
 
-  const code = await vm.stateManager.getCode(withdrawalsAddress)
-
-  if (code.length === 0) {
-    throw new Error(
-      'Attempt to accumulate EIP-7002 requests failed: the contract does not exist. Ensure the deployment tx has been run, or that the required contract code is stored',
-    )
-  }
-
   const systemAddressBytes = bigIntToAddressBytes(vm.common.param('systemAddress'))
   const systemAddress = createAddressFromString(bytesToHex(systemAddressBytes))
+  const systemAccount = await vm.stateManager.getAccount(systemAddress)
 
-  const originalAccount = await vm.stateManager.getAccount(systemAddress)
+  const originalAccount = await vm.stateManager.getAccount(withdrawalsAddress)
+
+  if (originalAccount === undefined) {
+    return
+  }
 
   const results = await vm.evm.runCall({
     caller: systemAddress,
     gasLimit: BigInt(1_000_000),
     to: withdrawalsAddress,
   })
+
+  if (systemAccount === undefined) {
+    await vm.stateManager.deleteAccount(systemAddress)
+  } else {
+    await vm.stateManager.putAccount(systemAddress, systemAccount)
+  }
 
   const resultsBytes = results.execResult.returnValue
   if (resultsBytes.length > 0) {
@@ -93,15 +96,8 @@ const accumulateEIP7002Requests = async (
       const sourceAddress = slicedBytes.slice(0, 20) // 20 Bytes
       const validatorPubkey = slicedBytes.slice(20, 68) // 48 Bytes
       const amount = bytesToBigInt(unpadBytes(slicedBytes.slice(68, 76))) // 8 Bytes / Uint64
-      requests.push(WithdrawalRequest.fromRequestData({ sourceAddress, validatorPubkey, amount }))
+      requests.push(createWithdrawalRequest({ sourceAddress, validatorPubkey, amount }))
     }
-  }
-
-  if (originalAccount === undefined) {
-    await vm.stateManager.deleteAccount(systemAddress)
-  } else {
-    // Restore the original account (the `runCall` updates the nonce)
-    await vm.stateManager.putAccount(systemAddress, originalAccount)
   }
 }
 
@@ -116,24 +112,27 @@ const accumulateEIP7251Requests = async (
   )
   const consolidationsAddress = createAddressFromString(bytesToHex(addressBytes))
 
-  const code = await vm.stateManager.getCode(consolidationsAddress)
-
-  if (code.length === 0) {
-    throw new Error(
-      'Attempt to accumulate EIP-7251 requests failed: the contract does not exist. Ensure the deployment tx has been run, or that the required contract code is stored',
-    )
-  }
-
   const systemAddressBytes = bigIntToAddressBytes(vm.common.param('systemAddress'))
   const systemAddress = createAddressFromString(bytesToHex(systemAddressBytes))
+  const systemAccount = await vm.stateManager.getAccount(systemAddress)
 
-  const originalAccount = await vm.stateManager.getAccount(systemAddress)
+  const originalAccount = await vm.stateManager.getAccount(consolidationsAddress)
+
+  if (originalAccount === undefined) {
+    return
+  }
 
   const results = await vm.evm.runCall({
     caller: systemAddress,
     gasLimit: BigInt(1_000_000),
     to: consolidationsAddress,
   })
+
+  if (systemAccount === undefined) {
+    await vm.stateManager.deleteAccount(systemAddress)
+  } else {
+    await vm.stateManager.putAccount(systemAddress, systemAccount)
+  }
 
   const resultsBytes = results.execResult.returnValue
   if (resultsBytes.length > 0) {
@@ -143,17 +142,8 @@ const accumulateEIP7251Requests = async (
       const sourceAddress = slicedBytes.slice(0, 20) // 20 Bytes
       const sourcePubkey = slicedBytes.slice(20, 68) // 48 Bytes
       const targetPubkey = slicedBytes.slice(68, 116) // 48 bytes
-      requests.push(
-        ConsolidationRequest.fromRequestData({ sourceAddress, sourcePubkey, targetPubkey }),
-      )
+      requests.push(createConsolidationRequest({ sourceAddress, sourcePubkey, targetPubkey }))
     }
-  }
-
-  if (originalAccount === undefined) {
-    await vm.stateManager.deleteAccount(systemAddress)
-  } else {
-    // Restore the original account (the `runCall` updates the nonce)
-    await vm.stateManager.putAccount(systemAddress, originalAccount)
   }
 }
 
@@ -221,7 +211,7 @@ const accumulateDeposits = async (
         ])
         const index = bytesToBigInt(indexBytesBigEndian)
         requests.push(
-          DepositRequest.fromRequestData({
+          createDepositRequest({
             pubkey,
             withdrawalCredentials,
             amount,

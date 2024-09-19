@@ -30,6 +30,21 @@ import { getOpcodesForHF } from './opcodes/index.js'
 import { paramsEVM } from './params.js'
 import { NobleBLS, getActivePrecompiles, getPrecompileName } from './precompiles/index.js'
 import { TransientStorage } from './transientStorage.js'
+import {
+  type Block,
+  type CustomOpcode,
+  DELEGATION_7702_FLAG,
+  type EVMBLSInterface,
+  type EVMBN254Interface,
+  type EVMEvents,
+  type EVMInterface,
+  type EVMMockBlockchainInterface,
+  type EVMOpts,
+  type EVMResult,
+  type EVMRunCallOpts,
+  type EVMRunCodeOpts,
+  type ExecResult,
+} from './types.js'
 
 import type { InterpreterOpts } from './interpreter.js'
 import type { Timer } from './logger.js'
@@ -37,20 +52,6 @@ import type { MessageWithTo } from './message.js'
 import type { AsyncDynamicGasHandler, SyncDynamicGasHandler } from './opcodes/gas.js'
 import type { OpHandler, OpcodeList, OpcodeMap } from './opcodes/index.js'
 import type { CustomPrecompile, PrecompileFunc } from './precompiles/index.js'
-import type {
-  Block,
-  Blockchain,
-  CustomOpcode,
-  EVMBLSInterface,
-  EVMBN254Interface,
-  EVMEvents,
-  EVMInterface,
-  EVMOpts,
-  EVMResult,
-  EVMRunCallOpts,
-  EVMRunCodeOpts,
-  ExecResult,
-} from './types.js'
 import type { Common, StateManagerInterface } from '@ethereumjs/common'
 
 const debug = debugDefault('evm:evm')
@@ -96,7 +97,7 @@ export class EVM implements EVMInterface {
   public readonly events: AsyncEventEmitter<EVMEvents>
 
   public stateManager: StateManagerInterface
-  public blockchain: Blockchain
+  public blockchain: EVMMockBlockchainInterface
   public journal: Journal
 
   public readonly transientStorage: TransientStorage
@@ -704,6 +705,10 @@ export class EVM implements EVMInterface {
       }
     }
 
+    if (message.depth === 0) {
+      this.postMessageCleanup()
+    }
+
     return {
       createdAddress: message.to,
       execResult: result,
@@ -1012,6 +1017,19 @@ export class EVM implements EVMInterface {
         message.isCompiled = true
       } else {
         message.code = await this.stateManager.getCode(message.codeAddress)
+
+        // EIP-7702 delegation check
+        if (
+          this.common.isActivatedEIP(7702) &&
+          equalsBytes(message.code.slice(0, 3), DELEGATION_7702_FLAG)
+        ) {
+          const address = new Address(message.code.slice(3, 24))
+          message.code = await this.stateManager.getCode(address)
+          if (message.depth === 0) {
+            this.journal.addAlwaysWarmAddress(address.toString())
+          }
+        }
+
         message.isCompiled = false
         message.chargeCodeAccesses = true
       }

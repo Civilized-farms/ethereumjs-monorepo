@@ -6,7 +6,7 @@ import {
   createCommonFromGethGenesis,
   createCustomCommon,
 } from '@ethereumjs/common'
-import { DefaultStateManager } from '@ethereumjs/statemanager'
+import { MerkleStateManager } from '@ethereumjs/statemanager'
 import { createFeeMarket1559Tx, createLegacyTx } from '@ethereumjs/tx'
 import { Address, equalsBytes, hexToBytes } from '@ethereumjs/util'
 import { AbstractLevel } from 'abstract-level'
@@ -22,7 +22,7 @@ import { wait } from '../integration/util.js'
 
 import type { FullSynchronizer } from '../../src/sync/index.js'
 import type { Block } from '@ethereumjs/block'
-import type { CliqueConsensus } from '@ethereumjs/blockchain'
+import type { Blockchain, CliqueConsensus } from '@ethereumjs/blockchain'
 import type { VM } from '@ethereumjs/vm'
 
 const A = {
@@ -45,7 +45,7 @@ BlockHeader.prototype['_consensusFormatValidation'] = vi.fn()
 
 // Stub out setStateRoot so txPool.validate checks will pass since correct state root
 // doesn't exist in fakeChain state anyway
-DefaultStateManager.prototype.setStateRoot = vi.fn()
+MerkleStateManager.prototype.setStateRoot = vi.fn()
 
 class FakeChain {
   open() {}
@@ -242,7 +242,9 @@ describe('assembleBlocks() -> with a single tx', async () => {
   await txPool.add(txA01)
 
   // disable consensus to skip PoA block signer validation
-  ;(vm.blockchain.consensus as CliqueConsensus).cliqueActiveSigners = () => [A.address] // stub
+  ;((vm.blockchain as Blockchain).consensus as CliqueConsensus).cliqueActiveSigners = () => [
+    A.address,
+  ] // stub
 
   chain.putBlocks = (blocks: Block[]) => {
     it('should include tx in new block', () => {
@@ -280,7 +282,9 @@ describe('assembleBlocks() -> with a hardfork mismatching tx', async () => {
   })
 
   // disable consensus to skip PoA block signer validation
-  ;(vm.blockchain.consensus as CliqueConsensus).cliqueActiveSigners = () => [A.address] // stub
+  ;((vm.blockchain as Blockchain).consensus as CliqueConsensus).cliqueActiveSigners = () => [
+    A.address,
+  ] // stub
 
   chain.putBlocks = (blocks: Block[]) => {
     it('should not include tx', () => {

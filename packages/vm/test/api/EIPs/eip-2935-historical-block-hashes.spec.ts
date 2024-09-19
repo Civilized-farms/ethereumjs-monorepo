@@ -22,8 +22,9 @@ import { assert, describe, it } from 'vitest'
 
 import { bytesToBigInt } from '../../../../util/src/bytes.js'
 import { BIGINT_0 } from '../../../../util/src/constants.js'
-import { VM, buildBlock, paramsVM, runBlock, runTx } from '../../../src/index.js'
+import { buildBlock, createVM, paramsVM, runBlock, runTx } from '../../../src/index.js'
 
+import type { VM } from '../../../src/index.js'
 import type { Block } from '@ethereumjs/block'
 import type { PrefixedHexString } from '@ethereumjs/util'
 
@@ -176,11 +177,13 @@ describe('EIP 2935: historical block hashes', () => {
         validateBlocks: false,
         validateConsensus: false,
       })
-      const vm = await VM.create({ common: commonGenesis, blockchain })
+      const vm = await createVM({ common: commonGenesis, blockchain })
+      // Ensure 2935 system code exists
+      await vm.stateManager.putCode(historyAddress, contract2935Code)
       commonGenesis.setHardforkBy({
         timestamp: 1,
       })
-      const genesis = await vm.blockchain.getBlock(0)
+      const genesis = (await vm.blockchain.getBlock(0)) as Block
       const block = await (
         await buildBlock(vm, {
           parentBlock: genesis,
@@ -214,8 +217,10 @@ describe('EIP 2935: historical block hashes', () => {
         validateBlocks: false,
         validateConsensus: false,
       })
-      const vm = await VM.create({ common, blockchain })
-      let lastBlock = await vm.blockchain.getBlock(0)
+      const vm = await createVM({ common, blockchain })
+      // Ensure 2935 system code exists
+      await vm.stateManager.putCode(historyAddress, contract2935Code)
+      let lastBlock = (await vm.blockchain.getBlock(0)) as Block
       for (let i = 1; i <= blocksToBuild; i++) {
         lastBlock = await (
           await buildBlock(vm, {

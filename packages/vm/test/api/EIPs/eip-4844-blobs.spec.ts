@@ -16,8 +16,8 @@ import {
 import { loadKZG } from 'kzg-wasm'
 import { assert, describe, it } from 'vitest'
 
-import * as genesisJSON from '../../../../client/test/testdata/geth-genesis/eip4844.json'
-import { VM, buildBlock, runBlock } from '../../../src/index.js'
+import { eip4844Data } from '../../../../client/test/testdata/geth-genesis/eip4844.js'
+import { buildBlock, createVM, runBlock } from '../../../src/index.js'
 import { setBalance } from '../utils.js'
 
 const pk = hexToBytes(`0x${'20'.repeat(32)}`)
@@ -27,7 +27,7 @@ describe('EIP4844 tests', () => {
   it('should build a block correctly with blobs', async () => {
     const kzg = await loadKZG()
 
-    const common = createCommonFromGethGenesis(genesisJSON, {
+    const common = createCommonFromGethGenesis(eip4844Data, {
       chain: 'eip4844',
       hardfork: Hardfork.Cancun,
       customCrypto: { kzg },
@@ -42,7 +42,7 @@ describe('EIP4844 tests', () => {
       validateBlocks: false,
       validateConsensus: false,
     })
-    const vm = await VM.create({ common, blockchain })
+    const vm = await createVM({ common, blockchain })
 
     const address = createAddressFromString(sender)
     await setBalance(vm, address, 14680063125000000000n)

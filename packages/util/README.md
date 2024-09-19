@@ -34,9 +34,9 @@ Class representing an `Account` and providing private/public key and address-rel
 ```ts
 // ./examples/account.ts
 
-import { Account } from '@ethereumjs/util'
+import { createAccount } from '@ethereumjs/util'
 
-const account = Account.fromAccountData({
+const account = createAccount({
   nonce: '0x02',
   balance: '0x0384',
   storageRoot: '0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421',
@@ -50,9 +50,9 @@ For Verkle or other contexts it can be useful to create partial accounts not con
 ```ts
 // ./examples/accountPartial.ts
 
-import { Account } from '@ethereumjs/util'
+import { createPartialAccount } from '@ethereumjs/util'
 
-const account = Account.fromPartialAccountData({
+const account = createPartialAccount({
   nonce: '0x02',
   balance: '0x0384',
 })
@@ -66,9 +66,9 @@ Class representing an Ethereum `Address` with instantiation helpers and validati
 ```ts
 // ./examples/address.ts
 
-import { Address } from '@ethereumjs/util'
+import { createAddressFromString } from '@ethereumjs/util'
 
-const address = Address.fromString('0x2f015c60e0be116b1f0cd534704db9c92118fb6a')
+const address = createAddressFromString('0x2f015c60e0be116b1f0cd534704db9c92118fb6a')
 console.log(`Ethereum address ${address.toString()} created`)
 ```
 
@@ -162,12 +162,12 @@ import { bytesToHex, ecrecover, hexToBytes } from '@ethereumjs/util'
 
 const chainId = BigInt(3) // Ropsten
 
-const echash = hexToBytes('0x82ff40c0a986c6a5cfad4ddf4c3aa6996f1a7837f9c398e17e5de5cbd5a12b28')
+const ecHash = hexToBytes('0x82ff40c0a986c6a5cfad4ddf4c3aa6996f1a7837f9c398e17e5de5cbd5a12b28')
 const r = hexToBytes('0x99e71a99cb2270b8cac5254f9e99b6210c6c10224a1579cf389ef88b20a1abe9')
 const s = hexToBytes('0x129ff05af364204442bdb53ab6f18a99ab48acc9326fa689f228040429e3ca66')
 const v = BigInt(41)
 
-const pubkey = ecrecover(echash, v, r, s, chainId)
+const pubkey = ecrecover(ecHash, v, r, s, chainId)
 
 console.log(`Recovered public key ${bytesToHex(pubkey)} from valid signature values`)
 ```
@@ -176,6 +176,42 @@ console.log(`Recovered public key ${bytesToHex(pubkey)} from valid signature val
 
 Various TypeScript types. Direct usage is not recommended, type structure might change in the future.
 
+### Module: [verkle](src/verkle.ts)
+
+Various functions for accessing verkle state:
+
+```ts
+// ./examples/verkle.ts
+
+import {
+  VerkleLeafType,
+  bytesToHex,
+  decodeVerkleLeafBasicData,
+  getVerkleKey,
+  hexToBytes,
+} from '@ethereumjs/util'
+
+const state = {
+  '0xdf67dea9181141d6255ac05c7ada5a590fb30a375023f16c31223f067319e300':
+    '0x0000000000000000000000000000000000000000000000000000000000000000',
+  '0xdf67dea9181141d6255ac05c7ada5a590fb30a375023f16c31223f067319e301':
+    '0x923672e5275a0104000000000000000000000000000000000000000000000000',
+  '0xdf67dea9181141d6255ac05c7ada5a590fb30a375023f16c31223f067319e302':
+    '0x2c01000000000000000000000000000000000000000000000000000000000000',
+  '0xdf67dea9181141d6255ac05c7ada5a590fb30a375023f16c31223f067319e303':
+    '0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470',
+  '0xdf67dea9181141d6255ac05c7ada5a590fb30a375023f16c31223f067319e304': null,
+}
+
+const stem = hexToBytes('0xdf67dea9181141d6255ac05c7ada5a590fb30a375023f16c31223f067319e3')
+
+const basicDataKey = getVerkleKey(stem, VerkleLeafType.BasicData)
+const basicDataRaw = state[bytesToHex(basicDataKey)]
+const basicData = decodeVerkleLeafBasicData(hexToBytes(basicDataRaw!))
+
+console.log(basicData) // { version: 0, nonce: 0n, codeSize: 0, balance: 0n }
+```
+
 ### Module: [withdrawal](src/withdrawal.ts)
 
 Class representing an `EIP-4895` `Withdrawal` with different constructors as well as conversion and output helpers.
@@ -183,9 +219,9 @@ Class representing an `EIP-4895` `Withdrawal` with different constructors as wel
 ```ts
 // ./examples/withdrawal.ts
 
-import { Withdrawal } from '@ethereumjs/util'
+import { createWithdrawal } from '@ethereumjs/util'
 
-const withdrawal = Withdrawal.fromWithdrawalData({
+const withdrawal = createWithdrawal({
   index: 0n,
   validatorIndex: 65535n,
   address: '0x0000000000000000000000000000000000000000',

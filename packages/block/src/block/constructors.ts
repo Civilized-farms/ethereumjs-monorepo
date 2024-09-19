@@ -2,20 +2,20 @@ import { RLP } from '@ethereumjs/rlp'
 import { Trie } from '@ethereumjs/trie'
 import {
   type TxOptions,
+  createTx,
   createTxFromBlockBodyData,
-  createTxFromSerializedData,
-  createTxFromTxData,
+  createTxFromRLP,
   normalizeTxParams,
 } from '@ethereumjs/tx'
 import {
   CLRequestFactory,
-  ConsolidationRequest,
-  DepositRequest,
-  Withdrawal,
-  WithdrawalRequest,
   bigIntToHex,
   bytesToHex,
   bytesToUtf8,
+  createConsolidationRequestFromJSON,
+  createDepositRequestFromJSON,
+  createWithdrawal,
+  createWithdrawalRequestFromJSON,
   equalsBytes,
   fetchFromProvider,
   getProvider,
@@ -28,13 +28,13 @@ import { generateCliqueBlockExtraData } from '../consensus/clique.js'
 import { genRequestsTrieRoot, genTransactionsTrieRoot, genWithdrawalsTrieRoot } from '../helpers.js'
 import {
   Block,
-  blockHeaderFromRpc,
   createBlockHeader,
   createBlockHeaderFromBytesArray,
+  createBlockHeaderFromRPC,
   executionPayloadFromBeaconPayload,
 } from '../index.js'
 
-import type { BeaconPayloadJson } from '../from-beacon-payload.js'
+import type { BeaconPayloadJSON } from '../from-beacon-payload.js'
 import type {
   BlockBytes,
   BlockData,
@@ -42,7 +42,7 @@ import type {
   ExecutionPayload,
   ExecutionWitnessBytes,
   HeaderData,
-  JsonRpcBlock,
+  JSONRPCBlock,
   RequestsBytes,
   WithdrawalsBytes,
 } from '../types.js'
@@ -77,7 +77,7 @@ export function createBlock(blockData: BlockData = {}, opts?: BlockOptions) {
   // parse transactions
   const transactions = []
   for (const txData of txsData ?? []) {
-    const tx = createTxFromTxData(txData, {
+    const tx = createTx(txData, {
       ...opts,
       // Use header common in case of setHardfork being activated
       common: header.common,
@@ -103,7 +103,7 @@ export function createBlock(blockData: BlockData = {}, opts?: BlockOptions) {
     uncleHeaders.push(uh)
   }
 
-  const withdrawals = withdrawalsData?.map(Withdrawal.fromWithdrawalData)
+  const withdrawals = withdrawalsData?.map(createWithdrawal)
   // The witness data is planned to come in rlp serialized bytes so leave this
   // stub till that time
   const executionWitness = executionWitnessData
@@ -117,6 +117,18 @@ export function createBlock(blockData: BlockData = {}, opts?: BlockOptions) {
     clRequests,
     executionWitness,
   )
+}
+
+/**
+ * Simple static constructor if only an empty block is needed
+ * (tree shaking advantages since it does not draw all the tx constructors in)
+ *
+ * @param headerData
+ * @param opts
+ */
+export function createEmptyBlock(headerData: HeaderData, opts?: BlockOptions) {
+  const header = createBlockHeader(headerData, opts)
+  return new Block(header)
 }
 
 /**
@@ -208,7 +220,7 @@ export function createBlockFromBytesArray(values: BlockBytes, opts?: BlockOption
       address,
       amount,
     }))
-    ?.map(Withdrawal.fromWithdrawalData)
+    ?.map(createWithdrawal)
 
   let requests
   if (header.common.isActivatedEIP(7685)) {
@@ -248,7 +260,7 @@ export function createBlockFromBytesArray(values: BlockBytes, opts?: BlockOption
  * @param serialized
  * @param opts
  */
-export function createBlockFromRLPSerializedBlock(serialized: Uint8Array, opts?: BlockOptions) {
+export function createBlockFromRLP(serialized: Uint8Array, opts?: BlockOptions) {
   const values = RLP.decode(Uint8Array.from(serialized)) as BlockBytes
 
   if (!Array.isArray(values)) {
@@ -266,21 +278,21 @@ export function createBlockFromRLPSerializedBlock(serialized: Uint8Array, opts?:
  * @param opts - An object describing the blockchain
  */
 export function createBlockFromRPC(
-  blockParams: JsonRpcBlock,
+  blockParams: JSONRPCBlock,
   uncles: any[] = [],
   options?: BlockOptions,
 ) {
-  const header = blockHeaderFromRpc(blockParams, options)
+  const header = createBlockHeaderFromRPC(blockParams, options)
 
   const transactions: TypedTransaction[] = []
   const opts = { common: header.common }
   for (const _txParams of blockParams.transactions ?? []) {
     const txParams = normalizeTxParams(_txParams)
-    const tx = createTxFromTxData(txParams, opts)
+    const tx = createTx(txParams, opts)
     transactions.push(tx)
   }
 
-  const uncleHeaders = uncles.map((uh) => blockHeaderFromRpc(uh, options))
+  const uncleHeaders = uncles.map((uh) => createBlockHeaderFromRPC(uh, options))
 
   const requests = blockParams.requests?.map((req) => {
     const bytes = hexToBytes(req as PrefixedHexString)
@@ -294,12 +306,12 @@ export function createBlockFromRPC(
 
 /**
  *  Method to retrieve a block from a JSON-RPC provider and format as a {@link Block}
- * @param provider either a url for a remote provider or an Ethers JsonRpcProvider object
+ * @param provider either a url for a remote provider or an Ethers JSONRPCProvider object
  * @param blockTag block hash or block number to be run
  * @param opts {@link BlockOptions}
  * @returns the block specified by `blockTag`
  */
-export const createBlockFromJsonRpcProvider = async (
+export const createBlockFromJSONRPCProvider = async (
   provider: string | EthersProvider,
   blockTag: string | bigint,
   opts: BlockOptions,
@@ -379,7 +391,7 @@ export async function createBlockFromExecutionPayload(
   const txs = []
   for (const [index, serializedTx] of transactions.entries()) {
     try {
-      const tx = createTxFromSerializedData(hexToBytes(serializedTx as PrefixedHexString), {
+      const tx = createTxFromRLP(hexToBytes(serializedTx as PrefixedHexString), {
         common: opts?.common,
       })
       txs.push(tx)
@@ -390,7 +402,7 @@ export async function createBlockFromExecutionPayload(
   }
 
   const transactionsTrie = await genTransactionsTrieRoot(txs, new Trie({ common: opts?.common }))
-  const withdrawals = withdrawalsData?.map((wData) => Withdrawal.fromWithdrawalData(wData))
+  const withdrawals = withdrawalsData?.map((wData) => createWithdrawal(wData))
   const withdrawalsRoot = withdrawals
     ? await genWithdrawalsTrieRoot(withdrawals, new Trie({ common: opts?.common }))
     : undefined
@@ -406,18 +418,18 @@ export async function createBlockFromExecutionPayload(
       : undefined
 
   if (depositRequests !== undefined && depositRequests !== null) {
-    for (const dJson of depositRequests) {
-      requests!.push(DepositRequest.fromJSON(dJson))
+    for (const dJSON of depositRequests) {
+      requests!.push(createDepositRequestFromJSON(dJSON))
     }
   }
   if (withdrawalRequests !== undefined && withdrawalRequests !== null) {
-    for (const wJson of withdrawalRequests) {
-      requests!.push(WithdrawalRequest.fromJSON(wJson))
+    for (const wJSON of withdrawalRequests) {
+      requests!.push(createWithdrawalRequestFromJSON(wJSON))
     }
   }
   if (consolidationRequests !== undefined && consolidationRequests !== null) {
-    for (const cJson of consolidationRequests) {
-      requests!.push(ConsolidationRequest.fromJSON(cJson))
+    for (const cJSON of consolidationRequests) {
+      requests!.push(createConsolidationRequestFromJSON(cJSON))
     }
   }
 
@@ -459,13 +471,13 @@ export async function createBlockFromExecutionPayload(
 }
 
 /**
- *  Method to retrieve a block from a beacon payload json
- * @param payload json of a beacon beacon fetched from beacon apis
+ *  Method to retrieve a block from a beacon payload JSON
+ * @param payload JSON of a beacon beacon fetched from beacon apis
  * @param opts {@link BlockOptions}
  * @returns the block constructed block
  */
-export async function createBlockFromBeaconPayloadJson(
-  payload: BeaconPayloadJson,
+export async function createBlockFromBeaconPayloadJSON(
+  payload: BeaconPayloadJSON,
   opts?: BlockOptions,
 ): Promise<Block> {
   const executionPayload = executionPayloadFromBeaconPayload(payload)

@@ -15,14 +15,14 @@ import {
 import { loadKZG } from 'kzg-wasm'
 import { assert, beforeAll, describe, it } from 'vitest'
 
-import gethGenesis from '../../block/test/testdata/4844-hardfork.json'
+import { hardfork4844Data } from '../../block/test/testdata/4844-hardfork.js'
 import {
   blobTxNetworkWrapperToJSON,
   createBlob4844Tx,
   createBlob4844TxFromRLP,
   createBlob4844TxFromSerializedNetworkWrapper,
   createMinimal4844TxFromNetworkWrapper,
-  createTxFromTxData,
+  createTx,
   paramsTx,
 } from '../src/index.js'
 
@@ -37,7 +37,7 @@ describe('EIP4844 addSignature tests', () => {
   let common: Common
   beforeAll(async () => {
     const kzg = await loadKZG()
-    common = createCommonFromGethGenesis(gethGenesis, {
+    common = createCommonFromGethGenesis(hardfork4844Data, {
       chain: 'customChain',
       hardfork: Hardfork.Cancun,
       customCrypto: { kzg },
@@ -101,7 +101,7 @@ describe('EIP4844 constructor tests - valid scenarios', () => {
   let common: Common
   beforeAll(async () => {
     const kzg = await loadKZG()
-    common = createCommonFromGethGenesis(gethGenesis, {
+    common = createCommonFromGethGenesis(hardfork4844Data, {
       chain: 'customChain',
       hardfork: Hardfork.Cancun,
       customCrypto: { kzg },
@@ -116,7 +116,7 @@ describe('EIP4844 constructor tests - valid scenarios', () => {
     }
     const tx = createBlob4844Tx(txData, { common })
     assert.equal(tx.type, 3, 'successfully instantiated a blob transaction from txData')
-    const factoryTx = createTxFromTxData(txData, { common })
+    const factoryTx = createTx(txData, { common })
     assert.equal(factoryTx.type, 3, 'instantiated a blob transaction from the tx factory')
 
     const serializedTx = tx.serialize()
@@ -139,7 +139,7 @@ describe('fromTxData using from a json', () => {
   let common: Common
   beforeAll(async () => {
     const kzg = await loadKZG()
-    common = createCommonFromGethGenesis(gethGenesis, {
+    common = createCommonFromGethGenesis(hardfork4844Data, {
       chain: 'customChain',
       hardfork: Hardfork.Cancun,
       customCrypto: { kzg },
@@ -211,7 +211,7 @@ describe('EIP4844 constructor tests - invalid scenarios', () => {
   let common: Common
   beforeAll(async () => {
     const kzg = await loadKZG()
-    common = createCommonFromGethGenesis(gethGenesis, {
+    common = createCommonFromGethGenesis(hardfork4844Data, {
       chain: 'customChain',
       hardfork: Hardfork.Cancun,
       customCrypto: { kzg },
@@ -268,7 +268,7 @@ describe('Network wrapper tests', () => {
   let common: Common
   beforeAll(async () => {
     kzg = await loadKZG()
-    common = createCommonFromGethGenesis(gethGenesis, {
+    common = createCommonFromGethGenesis(hardfork4844Data, {
       chain: 'customChain',
       hardfork: Hardfork.Cancun,
       params: paramsTx,
@@ -538,7 +538,7 @@ describe('hash() and signature verification', () => {
   let common: Common
   beforeAll(async () => {
     const kzg = await loadKZG()
-    common = createCommonFromGethGenesis(gethGenesis, {
+    common = createCommonFromGethGenesis(hardfork4844Data, {
       chain: 'customChain',
       hardfork: Hardfork.Cancun,
       customCrypto: { kzg },
@@ -586,7 +586,7 @@ describe('hash() and signature verification', () => {
 
 it('getEffectivePriorityFee()', async () => {
   const kzg = await loadKZG()
-  const common = createCommonFromGethGenesis(gethGenesis, {
+  const common = createCommonFromGethGenesis(hardfork4844Data, {
     chain: 'customChain',
     hardfork: Hardfork.Cancun,
     customCrypto: { kzg },
@@ -614,7 +614,7 @@ describe('Network wrapper deserialization test', () => {
   let common: Common
   beforeAll(async () => {
     kzg = await loadKZG()
-    common = createCommonFromGethGenesis(gethGenesis, {
+    common = createCommonFromGethGenesis(hardfork4844Data, {
       chain: 'customChain',
       hardfork: Hardfork.Cancun,
       params: paramsTx,

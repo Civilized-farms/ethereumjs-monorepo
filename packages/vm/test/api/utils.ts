@@ -1,5 +1,5 @@
 import { createBlockchain } from '@ethereumjs/blockchain'
-import { TransactionType, createTxFromTxData } from '@ethereumjs/tx'
+import { TransactionType, createTx } from '@ethereumjs/tx'
 import {
   Account,
   blobsToCommitments,
@@ -9,11 +9,12 @@ import {
 } from '@ethereumjs/util'
 import { MemoryLevel } from 'memory-level'
 
-import { VM } from '../../src/vm.js'
+import { createVM } from '../../src/index.js'
 
 import { LevelDB } from './level.js'
 
 import type { VMOpts } from '../../src/types.js'
+import type { VM } from '../../src/vm.js'
 import type { Block } from '@ethereumjs/block'
 import type { Common } from '@ethereumjs/common'
 import type { Address } from '@ethereumjs/util'
@@ -41,7 +42,7 @@ export async function setupVM(opts: VMOpts & { genesisBlock?: Block } = {}) {
       genesisBlock,
     })
   }
-  const vm = await VM.create({
+  const vm = await createVM({
     ...opts,
   })
   return vm
@@ -113,7 +114,7 @@ export function getTransaction(
     )
   }
 
-  const tx = createTxFromTxData(txParams, { common, freeze: false })
+  const tx = createTx(txParams, { common, freeze: false })
 
   if (sign) {
     const privateKey = hexToBytes(

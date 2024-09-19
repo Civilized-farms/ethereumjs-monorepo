@@ -38,22 +38,22 @@ The following is an example to instantiate a simple Blockchain object, put block
 ```ts
 // ./examples/simple.ts
 
-import { Block } from '@ethereumjs/block'
-import { Blockchain } from '@ethereumjs/blockchain'
-import { Common, Hardfork } from '@ethereumjs/common'
+import { createBlock } from '@ethereumjs/block'
+import { createBlockchain } from '@ethereumjs/blockchain'
+import { Common, Hardfork, Mainnet } from '@ethereumjs/common'
 import { bytesToHex } from '@ethereumjs/util'
 
 const main = async () => {
-  const common = new Common({ chain: 'mainnet', hardfork: Hardfork.London })
+  const common = new Common({ chain: Mainnet, hardfork: Hardfork.London })
   // Use the safe static constructor which awaits the init method
-  const blockchain = await Blockchain.create({
+  const blockchain = await createBlockchain({
     validateBlocks: false, // Skipping validation so we can make a simple chain without having to provide complete blocks
     validateConsensus: false,
     common,
   })
 
   // We use minimal data to provide a sequence of blocks (increasing number, difficulty, and then setting parent hash to previous block)
-  const block = Block.fromBlockData(
+  const block = createBlock(
     {
       header: {
         number: 1n,
@@ -63,7 +63,7 @@ const main = async () => {
     },
     { common, setHardfork: true },
   )
-  const block2 = Block.fromBlockData(
+  const block2 = createBlock(
     {
       header: {
         number: 2n,
@@ -87,7 +87,7 @@ const main = async () => {
   // Block 1: 0xa1a061528d74ba81f560e1ebc4f29d6b58171fc13b72b876cdffe6e43b01bdc5
   // Block 2: 0x5583be91cf9fb14f5dbeb03ad56e8cef19d1728f267c35a25ba5a355a528f602
 }
-main()
+void main()
 ```
 
 ### Database Abstraction / Removed LevelDB Dependency
@@ -141,16 +141,17 @@ For many custom chains we might come across a genesis configuration, which can b
 ```ts
 // ./examples/gethGenesis.ts
 
-import { Blockchain } from '@ethereumjs/blockchain'
-import { Common, parseGethGenesis } from '@ethereumjs/common'
+import { createBlockchain } from '@ethereumjs/blockchain'
+import { createCommonFromGethGenesis } from '@ethereumjs/common'
 import { bytesToHex, parseGethGenesisState } from '@ethereumjs/util'
+
 import gethGenesisJson from './genesisData/post-merge.json'
 
 const main = async () => {
   // Load geth genesis json file into lets say `gethGenesisJson`
-  const common = Common.fromGethGenesis(gethGenesisJson, { chain: 'customChain' })
+  const common = createCommonFromGethGenesis(gethGenesisJson, { chain: 'customChain' })
   const genesisState = parseGethGenesisState(gethGenesisJson)
-  const blockchain = await Blockchain.create({
+  const blockchain = await createBlockchain({
     genesisState,
     common,
   })
@@ -161,7 +162,7 @@ const main = async () => {
   )
 }
 
-main()
+void main()
 ```
 
 The genesis block from the initialized `Blockchain` can be retrieved via the `Blockchain.genesisBlock` getter. For creating a genesis block from the params in `@ethereumjs/common`, the `createGenesisBlock(stateRoot: Buffer): Block` method can be used.
@@ -238,9 +239,9 @@ The `Blockchain` class has a public property `events` which contains an `EventEm
 | ------------------------ | ------------------------------------------- |
 | `deletedCanonicalBlocks` | Emitted when blocks are reorged and deleted |
 
-## Developer
+## Debugging
 
-For debugging blockchain control flows the [debug](https://github.com/visionmedia/debug) library is used and can be activated on the CL with `DEBUG=[Logger Selection] node [Your Script to Run].js`.
+This library uses the [debug](https://github.com/visionmedia/debug) debugging utility package.
 
 The following initial logger is currently available:
 
@@ -255,6 +256,11 @@ Run with the clique logger:
 ```shell
 DEBUG=ethjs,blockchain:clique tsx test.ts
 ```
+
+`ethjs` **must** be included in the `DEBUG` environment variables to enable **any** logs.
+Additional log selections can be added with a comma separated list (no spaces). Logs with extensions can be enabled with a colon `:`, and `*` can be used to include all extensions (currently do not apply for blockchain debugging, example taken from another library).
+
+`DEBUG=ethjs,statemanager:cache:*,trie,statemanager:merkle npx vitest test/statemanager.spec.ts`
 
 ## EthereumJS
 

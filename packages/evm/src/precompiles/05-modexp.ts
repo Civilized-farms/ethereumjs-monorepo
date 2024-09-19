@@ -12,10 +12,13 @@ import {
   bytesToHex,
   setLengthLeft,
   setLengthRight,
-  short,
 } from '@ethereumjs/util'
 
 import { OOGResult } from '../evm.js'
+
+import { gasLimitCheck } from './util.js'
+
+import { getPrecompileName } from './index.js'
 
 import type { ExecResult } from '../types.js'
 import type { PrecompileInput } from './types.js'
@@ -103,6 +106,7 @@ export function expMod(a: bigint, power: bigint, modulo: bigint) {
 }
 
 export function precompile05(opts: PrecompileInput): ExecResult {
+  const pName = getPrecompileName('05')
   const data = opts.data.length < 96 ? setLengthRight(opts.data, 96) : opts.data
 
   let adjustedELen = getAdjustedExponentLength(data)
@@ -136,18 +140,7 @@ export function precompile05(opts: PrecompileInput): ExecResult {
       gasUsed = BIGINT_200
     }
   }
-  if (opts._debug !== undefined) {
-    opts._debug(
-      `Run MODEXP (0x05) precompile data=${short(opts.data)} length=${opts.data.length} gasLimit=${
-        opts.gasLimit
-      } gasUsed=${gasUsed}`,
-    )
-  }
-
-  if (opts.gasLimit < gasUsed) {
-    if (opts._debug !== undefined) {
-      opts._debug(`MODEXP (0x05) failed: OOG`)
-    }
+  if (!gasLimitCheck(opts, gasUsed, pName)) {
     return OOGResult(opts.gasLimit)
   }
 
@@ -160,14 +153,14 @@ export function precompile05(opts: PrecompileInput): ExecResult {
 
   if (bLen > maxSize || eLen > maxSize || mLen > maxSize) {
     if (opts._debug !== undefined) {
-      opts._debug(`MODEXP (0x05) failed: OOG`)
+      opts._debug(`${pName} failed: OOG`)
     }
     return OOGResult(opts.gasLimit)
   }
 
   if (mEnd > maxInt) {
     if (opts._debug !== undefined) {
-      opts._debug(`MODEXP (0x05) failed: OOG`)
+      opts._debug(`${pName} failed: OOG`)
     }
     return OOGResult(opts.gasLimit)
   }
@@ -190,7 +183,7 @@ export function precompile05(opts: PrecompileInput): ExecResult {
 
   const res = setLengthLeft(R, Number(mLen))
   if (opts._debug !== undefined) {
-    opts._debug(`MODEXP (0x05) return value=${bytesToHex(res)}`)
+    opts._debug(`${pName} return value=${bytesToHex(res)}`)
   }
 
   return {

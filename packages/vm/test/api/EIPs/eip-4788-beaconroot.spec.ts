@@ -11,7 +11,7 @@
 
 import { createBlock, createBlockHeader } from '@ethereumjs/block'
 import { Common, Hardfork, Mainnet } from '@ethereumjs/common'
-import { type TransactionType, type TxData, createTxFromTxData } from '@ethereumjs/tx'
+import { type TransactionType, type TxData, createTx } from '@ethereumjs/tx'
 import {
   bigIntToBytes,
   bytesToBigInt,
@@ -23,8 +23,9 @@ import {
 } from '@ethereumjs/util'
 import { assert, describe, it } from 'vitest'
 
-import { VM, runBlock as runBlockVM } from '../../../src/index.js'
+import { createVM, runBlock as runBlockVM } from '../../../src/index.js'
 
+import type { VM } from '../../../src/index.js'
 import type { Block } from '@ethereumjs/block'
 import type { BigIntLike, PrefixedHexString } from '@ethereumjs/util'
 
@@ -45,7 +46,7 @@ function beaconrootBlock(
   const newTxData = []
 
   for (const txData of transactions) {
-    const tx = createTxFromTxData({
+    const tx = createTx({
       gasPrice: 7,
       gasLimit: 100000,
       ...txData,
@@ -101,7 +102,7 @@ const BROOT_Address = createAddressFromString(`0x${BROOT_AddressString}`)
  * @returns Two fields: block return status, and callStatus (field saved in the contract)
  */
 async function runBlock(block: Block) {
-  const vm = await VM.create({
+  const vm = await createVM({
     common,
   })
 

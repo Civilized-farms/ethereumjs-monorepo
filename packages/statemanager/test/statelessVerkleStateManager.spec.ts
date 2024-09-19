@@ -1,13 +1,13 @@
 import { createBlock } from '@ethereumjs/block'
 import { createCommonFromGethGenesis } from '@ethereumjs/common'
-import { createTxFromSerializedData } from '@ethereumjs/tx'
+import { createTxFromRLP } from '@ethereumjs/tx'
 import {
   Address,
   VerkleLeafType,
-  bytesToBigInt,
   bytesToHex,
   createAccount,
   createAddressFromString,
+  decodeVerkleLeafBasicData,
   getVerkleKey,
   getVerkleStem,
   hexToBytes,
@@ -18,28 +18,30 @@ import { assert, beforeAll, describe, it, test } from 'vitest'
 
 import { CacheType, Caches, StatelessVerkleStateManager } from '../src/index.js'
 
-import * as testnetVerkleKaustinen from './testdata/testnetVerkleKaustinen.json'
-import * as verkleBlockJSON from './testdata/verkleKaustinen6Block72.json'
+import { testnetVerkleKaustinenData } from './testdata/testnetVerkleKaustinen.js'
+import { verkleKaustinen6Block72Data } from './testdata/verkleKaustinen6Block72.js'
 
-import type { BlockData } from '@ethereumjs/block'
-import type { PrefixedHexString, VerkleCrypto } from '@ethereumjs/util'
+import type { VerkleCrypto } from '@ethereumjs/util'
 
 describe('StatelessVerkleStateManager: Kaustinen Verkle Block', () => {
   let verkleCrypto: VerkleCrypto
   beforeAll(async () => {
     verkleCrypto = await loadVerkleCrypto()
   })
-  const common = createCommonFromGethGenesis(testnetVerkleKaustinen.default, {
+  const common = createCommonFromGethGenesis(testnetVerkleKaustinenData, {
     chain: 'customChain',
     eips: [2935, 4895, 6800],
   })
 
-  const decodedTxs = verkleBlockJSON.default.transactions.map((tx) =>
-    createTxFromSerializedData(hexToBytes(tx as PrefixedHexString), { common }),
+  const decodedTxs = verkleKaustinen6Block72Data.transactions?.map((tx) =>
+    createTxFromRLP(hexToBytes(tx), { common }),
   )
-  const block = createBlock({ ...verkleBlockJSON, transactions: decodedTxs } as BlockData, {
-    common,
-  })
+  const block = createBlock(
+    { ...verkleKaustinen6Block72Data, transactions: decodedTxs },
+    {
+      common,
+    },
+  )
 
   it('initPreState()', async () => {
     const stateManager = new StatelessVerkleStateManager({ verkleCrypto })
@@ -48,7 +50,8 @@ describe('StatelessVerkleStateManager: Kaustinen Verkle Block', () => {
     assert.ok(Object.keys(stateManager['_state']).length !== 0, 'should initialize with state')
   })
 
-  it('getAccount()', async () => {
+  // TODO: Turn back on once we have kaustinen7 data
+  it.skip('getAccount()', async () => {
     const stateManager = new StatelessVerkleStateManager({ common, verkleCrypto })
     stateManager.initVerkleExecutionWitness(block.header.number, block.executionWitness)
 
@@ -123,26 +126,19 @@ describe('StatelessVerkleStateManager: Kaustinen Verkle Block', () => {
     const address = createAddressFromString('0x6177843db3138ae69679a54b95cf345ed759450d')
     const stem = getVerkleStem(stateManager.verkleCrypto, address, 0n)
 
-    const balanceKey = getVerkleKey(stem, VerkleLeafType.Balance)
-    const nonceKey = getVerkleKey(stem, VerkleLeafType.Nonce)
+    const basicDataKey = getVerkleKey(stem, VerkleLeafType.BasicData)
     const codeHashKey = getVerkleKey(stem, VerkleLeafType.CodeHash)
 
-    const balanceRaw = stateManager['_state'][bytesToHex(balanceKey)]
-    const nonceRaw = stateManager['_state'][bytesToHex(nonceKey)]
+    const basicDataRaw = stateManager['_state'][bytesToHex(basicDataKey)]
+
+    const basicData = decodeVerkleLeafBasicData(hexToBytes(basicDataRaw!))
+
     const codeHash = stateManager['_state'][bytesToHex(codeHashKey)]
 
     const account = await stateManager.getAccount(address)
 
-    assert.equal(
-      account!.balance,
-      bytesToBigInt(hexToBytes(balanceRaw!), true),
-      'should have correct balance',
-    )
-    assert.equal(
-      account!.nonce,
-      bytesToBigInt(hexToBytes(nonceRaw!), true),
-      'should have correct nonce',
-    )
+    assert.equal(account!.balance, basicData.balance, 'should have correct balance')
+    assert.equal(account!.nonce, basicData.nonce, 'should have correct nonce')
     assert.equal(bytesToHex(account!.codeHash), codeHash, 'should have correct codeHash')
   })
 

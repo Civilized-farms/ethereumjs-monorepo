@@ -2,7 +2,7 @@
  * External Interfaces for other EthereumJS libraries
  */
 
-import type { Account, Address, PrefixedHexString } from '@ethereumjs/util'
+import type { Account, Address, PrefixedHexString, VerkleExecutionWitness } from '@ethereumjs/util'
 
 export interface StorageDump {
   [key: string]: string
@@ -31,7 +31,9 @@ export interface StorageRange {
   nextKey: string | null
 }
 
-export type AccountFields = Partial<Pick<Account, 'nonce' | 'balance' | 'storageRoot' | 'codeHash'>>
+export type AccountFields = Partial<
+  Pick<Account, 'nonce' | 'balance' | 'storageRoot' | 'codeHash' | 'codeSize'>
+>
 
 export type StorageProof = {
   key: PrefixedHexString
@@ -148,7 +150,6 @@ export interface StateManagerInterface {
    * on usage (check for existence)
    */
   // Client RPC
-  getProof?(address: Address, storageSlots: Uint8Array[]): Promise<Proof>
   dumpStorage?(address: Address): Promise<StorageDump>
   dumpStorageRange?(address: Address, startKey: bigint, limit: number): Promise<StorageRange>
 
@@ -161,6 +162,13 @@ export interface StateManagerInterface {
   }
   generateCanonicalGenesis?(initState: any): Promise<void> // TODO make input more typesafe
   // only Verkle/EIP-6800 (experimental)
+  accessWitness?: AccessWitnessInterface
+  initVerkleExecutionWitness?(
+    blockNum: bigint,
+    executionWitness?: VerkleExecutionWitness | null,
+    accessWitness?: AccessWitnessInterface,
+  ): void
+  verifyPostState?(): boolean
   checkChunkWitnessPresent?(contract: Address, programCounter: number): Promise<boolean>
   getAppliedKey?(address: Uint8Array): Uint8Array // only for preimages
 
