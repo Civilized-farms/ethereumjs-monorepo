@@ -8,12 +8,14 @@ import {
   hexToBytes,
   randomBytes,
 } from '@ethereumjs/util'
-import { loadKZG } from 'kzg-wasm'
+import { trustedSetup } from '@paulmillr/trusted-setups/fast.js'
+import { KZG as microEthKZG } from 'micro-eth-signer/kzg'
 import { assert, describe, it } from 'vitest'
 
 import { Chain } from '../../../src/blockchain/chain.js'
 import { Config } from '../../../src/config.js'
 import { EthProtocol } from '../../../src/net/protocol/index.js'
+const kzg = new microEthKZG(trustedSetup)
 
 describe('[EthProtocol]', () => {
   it('should get properties', async () => {
@@ -68,7 +70,7 @@ describe('[EthProtocol]', () => {
       'encode status',
     )
     const status = p.decodeStatus({
-      chainId: [0x01],
+      chainId: Uint8Array.from([0x01]),
       td: hexToBytes('0x64'),
       bestHash: '0xaa',
       genesisHash: '0xbb',
@@ -209,7 +211,6 @@ describe('[EthProtocol]', () => {
   })
 
   it('verify that Transactions handler encodes/decodes correctly', async () => {
-    const kzg = await loadKZG()
     const config = new Config({
       common: new Common({
         chain: Holesky,

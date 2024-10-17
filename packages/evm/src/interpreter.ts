@@ -76,7 +76,7 @@ export interface Env {
   codeAddress: Address /* Different than address for DELEGATECALL and CALLCODE */
   gasRefund: bigint /* Current value (at begin of the frame) of the gas refund */
   eof?: EOFEnv /* Optional EOF environment in case of EOF execution */
-  blobVersionedHashes: Uint8Array[] /** Versioned hashes for blob transactions */
+  blobVersionedHashes: PrefixedHexString[] /** Versioned hashes for blob transactions */
   createdAddresses?: Set<string>
   accessWitness?: AccessWitnessInterface
   chargeCodeAccesses?: boolean
@@ -503,7 +503,7 @@ export class Interpreter {
 
   // Returns all valid jump and jumpsub destinations.
   _getValidJumpDestinations(code: Uint8Array) {
-    const jumps = new Uint8Array(code.length).fill(0)
+    const jumps = new Uint8Array(code.length)
     const pushes: { [pc: number]: bigint } = {}
 
     const opcodesCached = Array(code.length)

@@ -3,21 +3,23 @@ import { MerkleStateManager } from '@ethereumjs/statemanager'
 import { createTx } from '@ethereumjs/tx'
 import {
   Account,
+  Units,
   blobsToCommitments,
   blobsToProofs,
-  bytesToHex,
   commitmentsToVersionedHashes,
   createAddressFromPrivateKey,
   createZeroAddress,
   getBlobs,
   hexToBytes,
 } from '@ethereumjs/util'
-import { loadKZG } from 'kzg-wasm'
+import { trustedSetup } from '@paulmillr/trusted-setups/fast.js'
+import { KZG as microEthKZG } from 'micro-eth-signer/kzg'
 import { assert, describe, it } from 'vitest'
 
 import { INVALID_PARAMS } from '../../../src/rpc/error-code.js'
 import { eip4844Data } from '../../testdata/geth-genesis/eip4844.js'
 import { baseSetup, getRPCClient, setupChain } from '../helpers.js'
+const kzg = new microEthKZG(trustedSetup)
 
 // Since the genesis is copy of withdrawals with just sharding hardfork also started
 // at 0, we can re-use the same payload args
@@ -68,8 +70,6 @@ describe(method, () => {
       return this
     }
 
-    const kzg = await loadKZG()
-
     const { service, server, common } = await setupChain(eip4844Data, 'post-merge', {
       engine: true,
       hardfork: Hardfork.Cancun,
@@ -102,7 +102,7 @@ describe(method, () => {
         kzgCommitments: txCommitments,
         kzgProofs: txProofs,
         maxFeePerBlobGas: 1n,
-        maxFeePerGas: 10000000000n,
+        maxFeePerGas: Units.gwei(10),
         maxPriorityFeePerGas: 100000000n,
         gasLimit: 30000000n,
         to: createZeroAddress(),
@@ -111,6 +111,16 @@ describe(method, () => {
     ).sign(pkey)
 
     await service.txPool.add(tx, true)
+
+    // check the blob and proof is available via getBlobsV1
+    res = await rpc.request('engine_getBlobsV1', [txVersionedHashes])
+    const blobsAndProofs = res.result
+    for (let i = 0; i < txVersionedHashes.length; i++) {
+      const { blob, proof } = blobsAndProofs[i]
+      assert.equal(blob, txBlobs[i])
+      assert.equal(proof, txProofs[i])
+    }
+
     res = await rpc.request('engine_getPayloadV3', [payloadId])
 
     const { executionPayload, blobsBundle } = res.result
@@ -127,9 +137,9 @@ describe(method, () => {
       'equal commitments, proofs and blobs',
     )
     assert.equal(blobs.length, 1, '1 blob should be returned')
-    assert.equal(proofs[0], bytesToHex(txProofs[0]), 'proof should match')
-    assert.equal(commitments[0], bytesToHex(txCommitments[0]), 'commitment should match')
-    assert.equal(blobs[0], bytesToHex(txBlobs[0]), 'blob should match')
+    assert.equal(proofs[0], txProofs[0], 'proof should match')
+    assert.equal(commitments[0], txCommitments[0], 'commitment should match')
+    assert.equal(blobs[0], txBlobs[0], 'blob should match')
 
     MerkleStateManager.prototype.setStateRoot = originalSetStateRoot
     MerkleStateManager.prototype.shallowCopy = originalStateManagerCopy

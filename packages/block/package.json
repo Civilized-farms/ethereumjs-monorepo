@@ -49,13 +49,14 @@
   "dependencies": {
     "@ethereumjs/common": "^4.4.0",
     "@ethereumjs/rlp": "^5.0.2",
-    "@ethereumjs/trie": "^6.2.1",
+    "@ethereumjs/mpt": "^6.2.2",
     "@ethereumjs/tx": "^5.4.0",
     "@ethereumjs/util": "^9.1.0",
     "ethereum-cryptography": "^3.0.0"
   },
   "devDependencies": {
-    "kzg-wasm": "^0.4.0"
+    "@paulmillr/trusted-setups": "^0.1.2",
+    "micro-eth-signer": "^0.11.0"
   },
   "engines": {
     "node": ">=18"

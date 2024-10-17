@@ -34,10 +34,21 @@ export interface VerkleCrypto {
   verifyExecutionWitnessPreState: (prestateRoot: string, execution_witness_json: string) => boolean
   hashCommitment: (commitment: Uint8Array) => Uint8Array
   serializeCommitment: (commitment: Uint8Array) => Uint8Array
-  createProof: (bytes: Uint8Array) => Uint8Array
-  verifyProof: (proof: Uint8Array) => boolean
+  createProof: (bytes: ProverInput[]) => Uint8Array
+  verifyProof: (proof: Uint8Array, verifierInput: VerifierInput[]) => boolean
+  commitToScalars: (vector: Uint8Array[]) => Uint8Array
 }
 
+export interface ProverInput {
+  serializedCommitment: Uint8Array // serialized node commitment we want a proof from  i.e. verkleCrypto.serializeCommitment(commitment)
+  vector: Uint8Array[] // Array of 256 children/values
+  indices: number[] // Indices from the valuesArray we are proving existence of
+}
+
+export interface VerifierInput {
+  serializedCommitment: Uint8Array // serialized node commitment we want a proof from  i.e. verkleCrypto.serializeCommitment(commitment)
+  indexValuePairs: Array<{ index: number; value: Uint8Array }> // array of tuples of indices and values from node's children array being verified by proof
+}
 /**
  * @dev Returns the 31-bytes verkle tree stem for a given address and tree index.
  * @dev Assumes that the verkle node width = 256
@@ -342,8 +353,8 @@ export function encodeVerkleLeafBasicData(account: Account): Uint8Array {
  */
 export const generateChunkSuffixes = (numChunks: number) => {
   if (numChunks === 0) return []
-  const chunkSuffixes = new Array<number>(numChunks)
-  const firstChunksSet = Math.min(numChunks, VERKLE_CODE_OFFSET)
+  const chunkSuffixes: number[] = new Array<number>(numChunks)
+  const firstChunksSet = numChunks > VERKLE_CODE_OFFSET ? VERKLE_CODE_OFFSET : numChunks
   for (let x = 0; x < firstChunksSet; x++) {
     // Fill up to first 128 suffixes
     chunkSuffixes[x] = x + VERKLE_CODE_OFFSET
