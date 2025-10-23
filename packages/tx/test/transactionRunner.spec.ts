@@ -1,6 +1,7 @@
 import { Common, Mainnet } from '@ethereumjs/common'
 import { bytesToHex, hexToBytes } from '@ethereumjs/util'
 import minimist from 'minimist'
+import _ from 'lodash'
 import { assert, describe, it } from 'vitest'
 
 import { createTxFromRLP } from '../src/transactionFactory.js'
@@ -46,7 +47,8 @@ const EIPs: Record<string, number[] | undefined> = {
 }
 
 describe('TransactionTests', async () => {
-  const fileFilterRegex = file !== undefined ? new RegExp(file + '[^\\w]') : undefined
+  const safeFile = file !== undefined ? _.escapeRegExp(file) : undefined
+  const fileFilterRegex = safeFile !== undefined ? new RegExp(safeFile + '[^\\w]') : undefined
   await getTests(
     (
       _filename: string,
