@@ -58,7 +58,7 @@
     "@ethereumjs/rlp": "^6.0.0-alpha.1",
     "@ethereumjs/util": "^10.0.0-alpha.1",
     "ethereum-cryptography": "^3.0.0",
-    "lodash": "^4.17.21"
+    "lodash": "^4.18.1"
   },
   "devDependencies": {
     "@types/minimist": "^1.2.0",
